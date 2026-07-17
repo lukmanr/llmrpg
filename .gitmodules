@@ -1,0 +1,3 @@
+[submodule "skill-shop"]
+	path = skill-shop
+	url = git@github.com:lukmanr/skill-shop.git
