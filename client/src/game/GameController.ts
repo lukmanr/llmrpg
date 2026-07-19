@@ -14,16 +14,30 @@ import type {
   Terrain,
   WorldDelta,
 } from '@llmrpg/shared';
+import { TERRAIN_FLAGS } from '@llmrpg/shared';
 import { getSession, getSnapshot, submitAction } from '../lib/gameClient';
 
 export type ConnectionState = 'connecting' | 'ready' | 'error';
 
+/** Subset of the map renderer the controller needs for pointer hover. */
+export interface HoverRenderer {
+  setHover(tile: { x: number; y: number } | null): void;
+}
+
+export interface HoverInfo {
+  tile: { x: number; y: number };
+  entity: EntityView | null;
+}
+
 export interface GameControllerOptions {
   presentation: PresentationChannel;
+  renderer: HoverRenderer;
   /** UI intents (journal / inventory / dismiss) forwarded to the React shell. */
   onUiIntent?: (ui: 'toggle-journal' | 'toggle-inventory' | 'dismiss') => void;
   /** Consequence receipts from successful action responses (DESIGN §7.2). */
   onReceipts?: (receipts: ReceiptView[]) => void;
+  /** Pointer hover target for the floating tooltip. */
+  onHover?: (info: HoverInfo | null) => void;
 }
 
 interface MutableWorldView {
@@ -39,17 +53,67 @@ interface MutableWorldView {
   log: LogLine[];
 }
 
+function sign(n: number): number {
+  if (n > 0) return 1;
+  if (n < 0) return -1;
+  return 0;
+}
+
+function chebyshev(ax: number, ay: number, bx: number, by: number): number {
+  return Math.max(Math.abs(ax - bx), Math.abs(ay - by));
+}
+
+/**
+ * One greedy step toward (tx, ty): prefer the axis of larger delta, then the
+ * other axis, then diagonal — same order as NPC reflex pathing.
+ */
+function greedyStepDeltas(
+  x: number,
+  y: number,
+  tx: number,
+  ty: number,
+): Array<{ dx: number; dy: number }> {
+  const adx = tx - x;
+  const ady = ty - y;
+  if (adx === 0 && ady === 0) return [];
+
+  const sx = sign(adx);
+  const sy = sign(ady);
+  const absX = Math.abs(adx);
+  const absY = Math.abs(ady);
+
+  const deltas: Array<{ dx: number; dy: number }> = [];
+  const pushUnique = (dx: number, dy: number): void => {
+    if (dx === 0 && dy === 0) return;
+    if (!deltas.some((d) => d.dx === dx && d.dy === dy)) {
+      deltas.push({ dx, dy });
+    }
+  };
+
+  if (absX >= absY) {
+    pushUnique(sx, 0);
+    pushUnique(0, sy);
+  } else {
+    pushUnique(0, sy);
+    pushUnique(sx, 0);
+  }
+  pushUnique(sx, sy);
+  return deltas;
+}
+
 /**
  * Owns WorldView assembly, turn submission, context resolution for take/talk,
- * and PresentationChannel side-effects from talk events.
+ * pointer play, and PresentationChannel side-effects from talk events.
  *
  * Never mutates the published WorldView in place without notify(); subscribers
  * always receive a stable snapshot via getView().
  */
 export class GameController implements Ticker {
   private readonly presentation: PresentationChannel;
+  private readonly renderer: HoverRenderer;
   private readonly onUiIntent?: GameControllerOptions['onUiIntent'];
   private readonly onReceipts?: GameControllerOptions['onReceipts'];
+  private readonly onHover?: GameControllerOptions['onHover'];
 
   private state: MutableWorldView | null = null;
   private connection: ConnectionState = 'connecting';
@@ -62,8 +126,10 @@ export class GameController implements Ticker {
 
   constructor(options: GameControllerOptions) {
     this.presentation = options.presentation;
+    this.renderer = options.renderer;
     this.onUiIntent = options.onUiIntent;
     this.onReceipts = options.onReceipts;
+    this.onHover = options.onHover;
   }
 
   getConnectionState(): ConnectionState {
@@ -101,6 +167,8 @@ export class GameController implements Ticker {
       window.removeEventListener('online', this.onlineHandler);
       this.onlineHandler = null;
     }
+    this.renderer.setHover(null);
+    this.onHover?.(null);
     this.listeners.clear();
   }
 
@@ -115,7 +183,7 @@ export class GameController implements Ticker {
 
   /**
    * Handle a PlayerIntent from the input adapter.
-   * Resolves empty take/talk ids before submitting.
+   * Resolves empty take/talk ids and pointer context before submitting.
    */
   handleIntent(intent: PlayerIntent): void {
     if (intent.kind === 'ui') {
@@ -123,9 +191,107 @@ export class GameController implements Ticker {
       return;
     }
 
+    if (intent.kind === 'pointer') {
+      this.handlePointer(intent.tile, intent.hover === true);
+      return;
+    }
+
     const resolved = this.resolveAction(intent.action);
     if (!resolved) return;
     void this.requestTurn(resolved);
+  }
+
+  /** Nearest adjacent talkable (for action-bar enablement). */
+  findTalkTarget(): EntityView | null {
+    return this.findAdjacentTalkable();
+  }
+
+  /** Nearest takeable item on/adjacent (for action-bar enablement). */
+  findTakeTarget(): EntityView | null {
+    return this.findAdjacentCarryable();
+  }
+
+  private handlePointer(tile: { x: number; y: number }, hover: boolean): void {
+    if (hover) {
+      this.renderer.setHover(tile);
+      const entity = this.entityAt(tile.x, tile.y);
+      this.onHover?.({ tile, entity });
+      return;
+    }
+
+    this.renderer.setHover(null);
+    this.onHover?.(null);
+
+    const action = this.resolvePointerClick(tile);
+    if (!action) return;
+    void this.requestTurn(action);
+  }
+
+  private resolvePointerClick(tile: { x: number; y: number }): GameAction | null {
+    const view = this.state;
+    if (!view) return null;
+
+    const { x: px, y: py } = view.player;
+    const dist = chebyshev(px, py, tile.x, tile.y);
+    const entitiesHere = this.entitiesAt(tile.x, tile.y);
+
+    const talkable = entitiesHere.find((e) => e.talkable);
+    if (talkable && dist <= 1 && dist > 0) {
+      return { verb: 'talk', targetId: talkable.id };
+    }
+
+    const item = entitiesHere.find((e) => e.carryable);
+    if (item && dist <= 1) {
+      return { verb: 'take', itemId: item.id };
+    }
+
+    // Adjacent walkable → step onto it.
+    if (dist === 1 && this.isWalkable(tile.x, tile.y)) {
+      return { verb: 'move', dx: tile.x - px, dy: tile.y - py };
+    }
+
+    // Farther walkable → one greedy step toward it.
+    if (dist > 1 && this.isWalkable(tile.x, tile.y)) {
+      for (const { dx, dy } of greedyStepDeltas(px, py, tile.x, tile.y)) {
+        const nx = px + dx;
+        const ny = py + dy;
+        if (this.isWalkable(nx, ny)) {
+          return { verb: 'move', dx, dy };
+        }
+      }
+    }
+
+    return null;
+  }
+
+  private isWalkable(x: number, y: number): boolean {
+    const view = this.state;
+    if (!view) return false;
+    if (x < 0 || y < 0 || x >= view.map.width || y >= view.map.height) return false;
+    const terrain = view.map.explored[y * view.map.width + x];
+    if (terrain == null) return false;
+    if (!TERRAIN_FLAGS[terrain].passable) return false;
+    return !view.visible.entities.some((e) => e.x === x && e.y === y && e.blocking);
+  }
+
+  private entityAt(x: number, y: number): EntityView | null {
+    const entities = this.entitiesAt(x, y);
+    return entities[0] ?? null;
+  }
+
+  private entitiesAt(x: number, y: number): EntityView[] {
+    const view = this.state;
+    if (!view) return [];
+    const rank = (e: EntityView): number => {
+      if (e.talkable) return 0;
+      if (e.kind === 'creature') return 1;
+      if (e.carryable) return 2;
+      if (e.kind === 'npc') return 3;
+      return 4;
+    };
+    return view.visible.entities
+      .filter((e) => e.x === x && e.y === y)
+      .sort((a, b) => rank(a) - rank(b));
   }
 
   private notify(): void {
@@ -188,7 +354,10 @@ export class GameController implements Ticker {
       },
       visible: {
         tileIdx: [...snapshot.visible.tileIdx],
-        entities: snapshot.visible.entities.map((e) => ({ ...e, appearance: { ...e.appearance, tags: [...e.appearance.tags] } })),
+        entities: snapshot.visible.entities.map((e) => ({
+          ...e,
+          appearance: { ...e.appearance, tags: [...e.appearance.tags] },
+        })),
       },
       player: {
         ...snapshot.player,
@@ -200,7 +369,7 @@ export class GameController implements Ticker {
 
   private resolveAction(action: GameAction): GameAction | null {
     if (action.verb === 'take' && action.itemId === '') {
-      const item = this.findTakeTarget();
+      const item = this.findAdjacentCarryable();
       if (!item) {
         this.presentation.notify('Nothing here to take.', 'system');
         return null;
@@ -208,7 +377,7 @@ export class GameController implements Ticker {
       return { verb: 'take', itemId: item.id };
     }
     if (action.verb === 'talk' && action.targetId === '') {
-      const target = this.findTalkTarget();
+      const target = this.findAdjacentTalkable();
       if (!target) {
         this.presentation.notify('No one to talk to.', 'system');
         return null;
@@ -218,7 +387,7 @@ export class GameController implements Ticker {
     return action;
   }
 
-  private findTakeTarget(): EntityView | null {
+  private findAdjacentCarryable(): EntityView | null {
     const view = this.state;
     if (!view) return null;
     const { x, y } = view.player;
@@ -234,7 +403,7 @@ export class GameController implements Ticker {
     return candidates[0] ?? null;
   }
 
-  private findTalkTarget(): EntityView | null {
+  private findAdjacentTalkable(): EntityView | null {
     const view = this.state;
     if (!view) return null;
     const { x, y } = view.player;
@@ -242,7 +411,6 @@ export class GameController implements Ticker {
       if (!e.talkable) return false;
       const dx = Math.abs(e.x - x);
       const dy = Math.abs(e.y - y);
-      // Adjacent (including diagonals), not the same tile as self-identity issues.
       return dx <= 1 && dy <= 1 && !(dx === 0 && dy === 0);
     });
     if (candidates.length === 0) return null;
@@ -354,7 +522,6 @@ export class GameController implements Ticker {
         typeof event.data['displayName'] === 'string'
           ? event.data['displayName']
           : 'Someone';
-      // agentName may still appear in event data; dialogue start uses targetId only.
       const agentName =
         typeof event.data['agentName'] === 'string' ? event.data['agentName'] : '';
       this.presentation.openDialogue({ entityId, displayName, agentName });
@@ -364,7 +531,6 @@ export class GameController implements Ticker {
   /** Append a local-only log line (e.g. from presentation.notify). */
   appendLocalLog(text: string, tone: LogLine['tone'] = 'system'): void {
     if (!this.state) {
-      // Allow notify before boot completes by buffering into a tiny ephemeral log.
       return;
     }
     const line: LogLine = {

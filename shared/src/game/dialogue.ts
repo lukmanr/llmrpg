@@ -21,8 +21,16 @@ export type DialogueAct = z.infer<typeof DialogueActSchema>;
 
 export const DialogueStartRequestSchema = z.object({
   targetId: z.string(),
+  /**
+   * Spontaneous speech (typed into the always-on chat): the NPC only needs
+   * to be within earshot (radius 4) rather than adjacent.
+   */
+  earshot: z.boolean().optional(),
 });
 export type DialogueStartRequest = z.infer<typeof DialogueStartRequestSchema>;
+
+/** Earshot radius (Chebyshev) for spontaneous speech. */
+export const EARSHOT_RADIUS = 4;
 
 /** Conversation-discipline state exposed to the UI (DESIGN §6.4). */
 export const DialogueStateSchema = z.object({

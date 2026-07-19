@@ -68,7 +68,7 @@ export function CharacterCreation({ onCreated }: CharacterCreationProps) {
         aria-label="Create your character"
       >
         <header className="modal-header">
-          <h2>Who walks the road?</h2>
+          <h2>🛤️ Who walks the road?</h2>
         </header>
         <form className="character-form" onSubmit={onSubmit}>
           <label className="character-field">

@@ -1,4 +1,5 @@
 import {
+  EARSHOT_RADIUS,
   SKILLSHOP_URL,
   gameTime,
   type DialogueAct,
@@ -64,7 +65,7 @@ export class DialogueOrchestrator {
     };
   }
 
-  start(targetId: string): DialogueState {
+  start(targetId: string, options: { earshot?: boolean } = {}): DialogueState {
     const { stores, world, playerEntityId } = this.deps;
     const state = world.loadWorldState();
     const npc = state.entities.get(targetId);
@@ -74,7 +75,9 @@ export class DialogueOrchestrator {
     const npcPos = getComponent(npc, 'Position');
     const playerPos = getComponent(state.entities.get(playerEntityId)!, 'Position');
     if (!npcPos || !playerPos) throw new DialogueError('invalid', 'Nobody is there.');
-    if (Math.max(Math.abs(npcPos.x - playerPos.x), Math.abs(npcPos.y - playerPos.y)) > 1) {
+    // Spontaneous speech carries across a few tiles; face-to-face talk is adjacent.
+    const maxDistance = options.earshot ? EARSHOT_RADIUS : 1;
+    if (Math.max(Math.abs(npcPos.x - playerPos.x), Math.abs(npcPos.y - playerPos.y)) > maxDistance) {
       throw new DialogueError('out_of_range', 'They are too far away.');
     }
 

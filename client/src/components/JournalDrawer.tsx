@@ -19,10 +19,10 @@ export interface JournalDrawerProps {
 }
 
 const TABS: { id: JournalTab; label: string }[] = [
-  { id: 'threads', label: 'Threads' },
-  { id: 'people', label: 'People' },
-  { id: 'claims', label: 'Claims' },
-  { id: 'chronicle', label: 'Chronicle' },
+  { id: 'threads', label: '🧵 Threads' },
+  { id: 'people', label: '👥 People' },
+  { id: 'claims', label: '🔎 Claims' },
+  { id: 'chronicle', label: '📜 Chronicle' },
 ];
 
 function formatDayPhase(tick: number): string {
@@ -110,9 +110,9 @@ export function JournalDrawer({
   return (
     <aside className="journal-drawer" aria-label="Journal">
       <header className="journal-header">
-        <h2>Journal</h2>
+        <h2>📖 Journal</h2>
         <button type="button" className="modal-close" onClick={onClose} aria-label="Close journal">
-          Esc
+          ✕
         </button>
       </header>
       <nav className="journal-tabs" aria-label="Journal sections">

@@ -108,8 +108,14 @@ export async function getJournal(): Promise<Journal> {
 }
 
 /** POST /api/game/dialogue/start */
-export async function dialogueStart(targetId: string): Promise<DialogueState> {
-  const body = DialogueStartRequestSchema.parse({ targetId });
+export async function dialogueStart(
+  targetId: string,
+  options?: { earshot?: boolean },
+): Promise<DialogueState> {
+  const body = DialogueStartRequestSchema.parse({
+    targetId,
+    earshot: options?.earshot,
+  });
   const response = await fetch(GAME_API.DIALOGUE_START, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

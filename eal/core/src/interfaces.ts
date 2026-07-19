@@ -46,7 +46,10 @@ export interface Renderer {
  */
 export type PlayerIntent =
   | { kind: 'action'; action: GameAction }
-  | { kind: 'ui'; ui: 'toggle-journal' | 'toggle-inventory' | 'dismiss' };
+  | { kind: 'ui'; ui: 'toggle-journal' | 'toggle-inventory' | 'dismiss' }
+  /** Pointer interaction with a world tile; the controller resolves the
+   *  context action (move toward / talk / take) from game state. */
+  | { kind: 'pointer'; tile: { x: number; y: number }; hover?: boolean };
 
 export interface InputSource {
   subscribe(handler: (intent: PlayerIntent) => void): () => void;

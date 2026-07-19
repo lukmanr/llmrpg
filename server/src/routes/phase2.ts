@@ -46,7 +46,9 @@ export function createPhase2Router(deps: {
       return res.status(400).json({ error: parsed.error.message });
     }
     try {
-      res.json(orchestrator.start(parsed.data.targetId));
+      res.json(
+        orchestrator.start(parsed.data.targetId, { earshot: parsed.data.earshot }),
+      );
     } catch (err) {
       if (err instanceof DialogueError) {
         return res.status(err.code === 'not_found' ? 404 : 400).json({ error: err.message });

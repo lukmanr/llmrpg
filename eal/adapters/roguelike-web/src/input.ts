@@ -1,4 +1,5 @@
 import type { InputSource, PlayerIntent } from '@llmrpg/eal-core';
+import type { CanvasTileRenderer, TileCoord } from './renderer.js';
 
 export type IsCapturedFn = () => boolean;
 
@@ -70,6 +71,129 @@ export class KeyboardInputSource implements InputSource {
     if (!intent) return;
     e.preventDefault();
     this.emit(intent);
+  }
+}
+
+/** Minimal renderer surface needed for pointer hit-testing / hover. */
+export interface PointerHitTarget {
+  hitTest(clientX: number, clientY: number): TileCoord | null;
+  setHover(tile: TileCoord | null): void;
+}
+
+/**
+ * Mouse → PlayerIntent. Hover intents are throttled to tile changes.
+ * Click emits `{ kind:'pointer', tile }` (no hover flag).
+ */
+export class PointerInputSource implements InputSource {
+  private handlers = new Set<(intent: PlayerIntent) => void>();
+  private readonly renderer: PointerHitTarget;
+  private readonly getCanvas: () => HTMLCanvasElement | null;
+  private boundMove: ((e: MouseEvent) => void) | null = null;
+  private boundClick: ((e: MouseEvent) => void) | null = null;
+  private attached = false;
+  private lastHover: TileCoord | null = null;
+
+  private readonly isCaptured: IsCapturedFn;
+
+  constructor(
+    renderer: PointerHitTarget | CanvasTileRenderer,
+    getCanvas: () => HTMLCanvasElement | null,
+    isCaptured: IsCapturedFn = () => false,
+  ) {
+    this.renderer = renderer;
+    this.getCanvas = getCanvas;
+    this.isCaptured = isCaptured;
+  }
+
+  attach(): void {
+    if (this.attached) return;
+    // Document-level so subscribe-before-mount still works; hitTest bounds-checks the canvas.
+    this.boundMove = (e: MouseEvent) => {
+      if (!this.getCanvas()) return;
+      if (this.isCaptured()) {
+        // Clear any lingering hover highlight while an overlay is open.
+        if (this.lastHover) {
+          this.lastHover = null;
+          this.renderer.setHover(null);
+        }
+        return;
+      }
+      this.onMove(e);
+    };
+    this.boundClick = (e: MouseEvent) => {
+      if (!this.getCanvas()) return;
+      if (this.isCaptured()) return;
+      this.onClick(e);
+    };
+    document.addEventListener('mousemove', this.boundMove);
+    document.addEventListener('click', this.boundClick);
+    this.attached = true;
+  }
+
+  detach(): void {
+    if (!this.attached) return;
+    if (this.boundMove) document.removeEventListener('mousemove', this.boundMove);
+    if (this.boundClick) document.removeEventListener('click', this.boundClick);
+    this.boundMove = null;
+    this.boundClick = null;
+    this.attached = false;
+    this.clearHover();
+  }
+
+  subscribe(handler: (intent: PlayerIntent) => void): () => void {
+    this.handlers.add(handler);
+    if (!this.attached) this.attach();
+    return () => {
+      this.handlers.delete(handler);
+      if (this.handlers.size === 0) this.detach();
+    };
+  }
+
+  private emit(intent: PlayerIntent): void {
+    for (const handler of this.handlers) {
+      handler(intent);
+    }
+  }
+
+  private onMove(e: MouseEvent): void {
+    const tile = this.renderer.hitTest(e.clientX, e.clientY);
+    if (tile?.x === this.lastHover?.x && tile?.y === this.lastHover?.y) return;
+    this.lastHover = tile ? { ...tile } : null;
+    this.renderer.setHover(tile);
+    if (tile) {
+      this.emit({ kind: 'pointer', tile: { ...tile }, hover: true });
+    }
+  }
+
+  private onClick(e: MouseEvent): void {
+    const tile = this.renderer.hitTest(e.clientX, e.clientY);
+    if (!tile) return;
+    e.preventDefault();
+    this.emit({ kind: 'pointer', tile: { ...tile } });
+  }
+
+  private clearHover(): void {
+    if (this.lastHover == null) return;
+    this.lastHover = null;
+    this.renderer.setHover(null);
+  }
+}
+
+/**
+ * Fans a single subscribe out to keyboard + pointer (or any InputSources).
+ */
+export class CompositeInputSource implements InputSource {
+  private readonly sources: InputSource[];
+
+  constructor(...sources: InputSource[]) {
+    this.sources = sources;
+  }
+
+  subscribe(handler: (intent: PlayerIntent) => void): () => void {
+    const unsubs = this.sources.map((s) => s.subscribe(handler));
+    return () => {
+      for (const unsub of unsubs) unsub();
+    };
   }
 }
 
