@@ -4,9 +4,11 @@ An exploration of how to build an immersive RPG world powered by AI agents.
 
 llmrpg is an LLM-powered RPG designed around **societies of autonomous NPC agents**. The goal is to replicate the D&D experience brought to life by an expert dungeon master — one who combines great storytelling with creative tactical and side-quest twists — in an open game world where NPCs live as autonomous beings with their own agendas, motivations, goals, and aspirations.
 
+The product promise: **form attachments, change people's lives, and return to evidence that they remember.** Persistent, legible, personal consequence is the differentiator — not content volume.
+
 ## Vision
 
-The NPC agents are the focus of this project. We are building a **generic agentic framework to power societies of NPCs**, so that they act as improvisational players on an open-world stage — reacting and evolving with the storyline, and motivated to create memorable stories and experiences for the human player. Players will ultimately interact with these agents in open-world 3D-modeled environments; the first release targets a browser-based **2D roguelike UI**.
+The NPC agents are the focus of this project. We are building a **generic agentic framework to power societies of NPCs**, so that they act as improvisational players on an open-world stage — reacting and evolving with the storyline. NPCs pursue their own in-world goals; a Director system curates which of their collisions become visible drama, so that the system as a whole produces memorable stories and experiences for the human player. Players will ultimately interact with these agents in open-world 3D-modeled environments; the first release targets a browser-based **2D roguelike UI**.
 
 ### Setting
 
@@ -41,18 +43,20 @@ The load-bearing design rule: **LLMs propose; the engine disposes.** Every world
 
 ### Core subsystems
 
-- **NPC cognitive architecture** — persona sheets, agendas (drives → goals → plans → intents), a memory stream with scored retrieval and reflection, relationship models, and split-speed cognition (reflex / conversational / deliberative tiers) with level-of-detail simulation so hundreds of NPCs stay affordable.
-- **The Director** — an AI dungeon master: a drama manager that owns pacing, tension, and story arcs via natural-language-triggered storylets, without puppeteering NPC minds or railroading the player.
-- **Quest system** — schema-validated quest artifacts with solvability checking; quest hooks sourced bottom-up from real NPC agendas and top-down from campaign arcs.
+- **NPC cognitive architecture** — persona sheets, agendas (drives → goals → plans → intents), memory and beliefs with provenance (who told whom, distorted how), hybrid retrieval with reflection, relationship models, and split-speed cognition (reflex / conversational / deliberative tiers) with level-of-detail simulation so hundreds of NPCs stay affordable.
+- **Player experience architecture** — the loop that makes the simulation playable: consequence receipts ("Because you…"), promises and appointments as tracked gameplay objects, rumor provenance as investigative play, semantic dialogue acts over free text, visible NPC activity, player-authored vows, and a journal that is a core gameplay surface.
+- **The Director** — an AI dungeon master: a deterministic drama-management core (tension cycle, thread caps, compiled storylet triggers with typed role casting, progress clocks, story sifters) with LLM elaboration and judgment layered on top — never puppeteering NPC minds or railroading the player.
+- **Quest system** — schema-validated quest artifacts with witness-plan solvability certificates and success-with-cost outcomes; quest hooks sourced bottom-up from real NPC agendas and top-down from campaign arcs.
 - **Worldgen, lore, and legends** — generated mythic history as a lore graph, a curated chronicle of the current era, and legend-forging that mythologizes each playthrough into the persistent world.
-- **Evaluation framework** — NPC believability, quest quality, and world liveliness are measured continuously with simulated players, persona-consistency suites, state-verifiable predicates, and society-level metrics.
+- **Evaluation framework** — NPC believability, quest quality, world liveliness, and player-experience outcomes (attachment, recall, perceived consequence) measured continuously with simulated players, state-verifiable predicates, and architectural ablation baselines.
 
 ## Documentation
 
 - [Design Document](docs/design/DESIGN.md) — full architecture, subsystems, data model, and the phased implementation roadmap.
-- [NPC Agent Literature Review](docs/research/NPC_AGENT_LITERATURE.md) — survey of published work on NPC agent cognitive architectures, evaluation frameworks and benchmarks, quest design with agentic NPCs, and storytelling / drama management, with design implications for llmrpg.
+- [NPC Agent Literature Review](docs/research/NPC_AGENT_LITERATURE.md) — survey of published work on NPC agent cognitive architectures, evaluation frameworks and benchmarks, quest design with agentic NPCs, storytelling / drama management, and pre-LLM game-design precedents, with design implications for llmrpg.
+- [Design Review](tasks/LLMRPG_DESIGN_REVIEW.md) — external review of the design; its recommendations are incorporated in the current design revision.
 - [SkillShop README](skill-shop/README.md) and [technical docs](skill-shop/docs/technical/) — the agent platform llmrpg builds on.
 
 ## Status
 
-Design phase. The [design document](docs/design/DESIGN.md) defines the implementation roadmap, beginning with the three-process skeleton (client, llmrpg server, SkillShop service), followed by the engine core and roguelike client, NPC cognition, quests, the Director, worldgen and scale, campaigns, and multi-playthrough legends.
+Design phase. The [design document](docs/design/DESIGN.md) defines the implementation roadmap, beginning with the three-process skeleton (client, llmrpg server, SkillShop service), followed by the engine core and roguelike client, then the **Milltown vertical slice** — NPC cognition plus the player-experience loop, gated by an explicit acceptance test — then a minimal deterministic Director with the first agenda-grounded quests, the LLM Director and chronicle, worldgen and scale, campaigns, and multi-playthrough legends.

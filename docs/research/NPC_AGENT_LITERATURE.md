@@ -1,6 +1,6 @@
 # NPC Agent Literature Review
 
-A survey of published work relevant to llmrpg's core problem: long-running, autonomous, LLM-powered NPC agents that populate an open game world, improvise quests, and co-create stories with a human player. Organized around the four focus areas: (1) cognitive architectures, (2) evaluation frameworks and benchmarks, (3) quest design with agentic NPCs, and (4) storytelling / drama management. Each section ends with design implications for llmrpg.
+A survey of published work relevant to llmrpg's core problem: long-running, autonomous, LLM-powered NPC agents that populate an open game world, improvise quests, and co-create stories with a human player. Organized around the four focus areas: (1) cognitive architectures, (2) evaluation frameworks and benchmarks, (3) quest design with agentic NPCs, and (4) storytelling / drama management — plus (5) pre-LLM game-design precedents from social simulation, drama management, and procedural narrative that solved adjacent problems without LLMs. Each section ends with design implications for llmrpg.
 
 Last updated: July 2026.
 
@@ -124,7 +124,45 @@ Open-Theatre also validates a **hierarchical memory system** (scene-level and lo
 
 ---
 
-## 5. Synthesis: What llmrpg Takes from the Literature
+## 5. Game-Design Precedents (Pre-LLM and Non-LLM)
+
+The academic LLM-agent literature is young; the craft problems llmrpg faces — legible social simulation, drama management, procedural history, subjective knowledge — have two decades of prior art in game design and interactive-narrative research. These systems solved the problems *without* LLMs, which makes them especially instructive: they show which mechanisms can and should stay deterministic.
+
+### 5.1 Social simulation as gameplay
+
+- **Prom Week / Comme il Faut** ([Social Physics as Gameplay](http://www.ben-samuel.com/wp-content/uploads/2015/09/FDG-2011-Prom-Week-Social-Physics-as-Gameplay.pdf), FDG 2011) — models social exchanges, status, cultural rules, character history, and volition as playable "social physics." The key insight: relationships should create and remove *actionable affordances*, not merely change dialogue tone.
+- **Versu** ([A Simulationist Storytelling System](https://doi.org/10.1109/tciaig.2013.2287297), IEEE TCIAIG 2014) — coordinates autonomous agents through **role-based social practices**: reusable structures (greeting, bargaining, testimony, courtship, ritual) that define roles, entry/exit conditions, expected acts, taboos, and affordances. Practices *suggest* behavior without controlling agents — the missing layer between reflex behavior and unconstrained LLM conversation.
+- **Talk of the Town / Bad News** ([Toward Characters Who Observe, Tell, Misremember, and Lie](https://doi.org/10.1609/aiide.v11i3.12825), AIIDE 2015; [GameAIPro chapter](http://www.gameaipro.com/GameAIPro3/GameAIPro3_Chapter37_Simulating_Character_Knowledge_Phenomena_in_Talk_of_the_Town.pdf)) — the definitive treatment of **subjective character knowledge**: beliefs with sources, confidence, firsthand-vs-reported status, transmission chains, forgetting, misremembering, and deliberate lies. Directly the blueprint for llmrpg's belief-provenance system and investigative play.
+- **Shadows of Doubt** ([site](https://fireshinegames.co.uk/games/shadows-of-doubt/)) — demonstrates NPC routines becoming gameplay when the player can tail people, inspect records, connect evidence, and exploit causal traces.
+
+### 5.2 Drama management and pacing
+
+- **Façade** ([Structuring Content in the Façade Interactive Drama Architecture](https://eis.ucsc.edu/papers/MateasSternAIIDE05.pdf), AIIDE 2005) — the foundational precedent for combining autonomous character behavior with global dramatic **beat sequencing**; also a standing warning about authoring cost and unconstrained natural language.
+- **Left 4 Dead's AI Director** ([The AI Systems of Left 4 Dead](https://steamcdn-a.akamaihd.net/apps/valve/2009/ai_systems_of_l4d_mike_booth.pdf), Booth 2009) — adaptive dramatic pacing as an explicit **build → peak → fade → relax** cycle with mandatory recovery periods, and the separation of *pacing* from *difficulty*. The Director's tension state machine should be this, not an LLM vibe.
+- **RimWorld** ([About RimWorld](https://rimworldwiki.com/wiki/About_RimWorld)) — selectable **storyteller policies** (Cassandra/Phoebe/Randy) prove that pacing personas are a cheap, legible replayability feature, and that failure and disaster are valid story outcomes players embrace.
+
+### 5.3 Procedural narrative structure
+
+- **Failbetter's quality-based narrative / StoryNexus** ([StoryNexus](https://www.failbettergames.com/news/storynexus-is-live)) — explicit world **qualities gate storylets**, keeping very large modular narratives tractable, debuggable, and authorable. The argument for compiling storylet triggers to structured predicates rather than evaluating natural language per tick.
+- **Wildermyth** ([site](https://www.wildermyth.com/); [Event Design Philosophy](https://www.wildermyth.com/wiki/Event_design_philosophy)) — **typed event-role casting**: events define role slots cast from character traits, history, and relationships, making procedural history emotionally legible (aging, transformation, sacrifice, recurring legacy characters). The model for llmrpg's typed storylet roles and computational late binding.
+- **Story sifting: Felt and successors** ([Felt: A Simple Story Sifter](https://mkremins.github.io/publications/Felt_SimpleStorySifter.pdf); [Authoring for Story Sifters](https://mkremins.github.io/publications/AuthoringSifters_TAP.pdf)) — a living simulation produces mostly routine events; deterministic, authorable **story recognizers** over causally-annotated event logs find the betrayals, reciprocated kindnesses, and promises-kept-at-great-cost. Requires events to carry causal metadata at emission time.
+- **Shadow of Mordor's Nemesis system** ([Designing the Nemesis System](https://www.gamedeveloper.com/design/designing-i-shadow-of-mordor-i-s-nemesis-system); [postmortem](https://www.gamedeveloper.com/audio/postmortem-monolith-productions-i-middle-earth-shadow-of-mordor-i-)) — procedural NPC memory becomes emotionally effective through **repeated encounters, scars, rank changes, callbacks, and visible mechanical evolution** — and through players being able to recall and share the resulting stories.
+- **Caves of Qud** ([Generation of Mythic Biographies](https://freeholdgames.com/papers/Generation_of_Mythic_Biographies_in_CavesofQud.pdf), 2018) — generated deep history encountered through **shrines, engravings, relics, and discovery order**, with **constrained ex-post rationalization**: backfill connective detail around fixed facts without contradicting them. The model for llmrpg's legend forging.
+
+### 5.4 Tabletop design technology
+
+- **Blades in the Dark** ([Progress Clocks](https://bladesinthedark.com/progress-clocks)) and **Dungeon World** ([Fronts](https://www.dungeonworldsrd.com/gamemastering/fronts/)) — simple, legible models for advancing threats and faction plans with visible warning signs. Clocks and fronts are the player-facing form of "the world does not wait."
+- **Burning Wheel** ([Hub and Spokes](https://www.wargamevault.com/product/98542/Burning-Wheel-Gold-Hub-and-Spokes)) — player-authored **Beliefs** as mechanical objects the GM is obligated to challenge; the model for llmrpg's player vows.
+- **Apocalypse World** ([Threats](http://apocalypse-world.com/AW2ndEdThreatsPreview.pdf)) and **Hillfolk/DramaSystem** ([SRD](https://pelgranepress.com/2013/09/19/dramasystem-srd/)) — prepare **open questions and threats, never outcomes**; structure dramatic scenes around what characters want from each other. The model for campaign stakes questions.
+
+### 5.5 Design implications for llmrpg
+
+1. **Keep the skeleton deterministic.** Practices, storylet gating, role casting, clocks, sifting, and pacing all have proven non-LLM implementations; the LLM's job is perception-level flavor, dialogue, elaboration, and judgment at the margins — not the control loop.
+2. **Beliefs with provenance are twenty years old and they work** (Talk of the Town); LLMs make the *rendering* of gossip, lies, and misremembering cheap, not the modeling.
+3. **Legibility mechanisms are the product**: receipts, clocks, scars, memorials, recaps (Nemesis, Blades, Wildermyth) — an invisible simulation is indistinguishable from random prose.
+4. **Author questions, not answers** (Apocalypse World, DramaSystem): campaign structure should carry unresolved stakes questions the system may not pre-answer.
+
+## 6. Synthesis: What llmrpg Takes from the Literature
 
 | Area | Adopted pattern | Primary sources |
 |---|---|---|
@@ -136,6 +174,13 @@ Open-Theatre also validates a **hierarchical memory system** (scene-level and lo
 | DM emulation | Co-DM task decomposition; synchronous context delivery | CALYPSO |
 | Evaluation | Persona-consistency suites with ground-truth baselines; state-verifiable outcome predicates; trajectory metrics; simulated players; society-level benchmarks; cost as a metric | CharacterEval, MMRole-Eval, GameWorld, agent-eval survey, Project Sid |
 | Scale/cost | Cognition LOD; model tiering (frontier for direction, small/fine-tuned for high-volume NPC chatter) | Open-Theatre, PLAYER:NPC, Project Sid |
+| Subjective knowledge | Beliefs with provenance, distortion, misremembering, and lies as gameplay | Talk of the Town, Shadows of Doubt |
+| Social structure | Role-based social practices between reflex and free conversation | Versu, Prom Week |
+| Narrative control | Quality-gated storylets compiled to predicates; typed role casting; deterministic pacing cycle with personas | Failbetter QBN, Wildermyth, Left 4 Dead, RimWorld |
+| Story recognition | Deterministic sifters over causally-annotated event logs | Felt, story-sifting literature |
+| Consequence legibility | Receipts, scars, callbacks, clocks, shareable recaps | Nemesis system, Blades in the Dark, Dungeon World |
+| Player commitments & stakes | Player-authored vows the system must challenge; open stakes questions, never pre-answered outcomes | Burning Wheel, Apocalypse World, DramaSystem |
+| Legend generation | Constrained ex-post rationalization; history encountered via artifacts in discovery order | Caves of Qud |
 
 Gaps in the literature that llmrpg will be exploring largely on its own:
 
