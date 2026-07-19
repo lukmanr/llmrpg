@@ -1,0 +1,23 @@
+{
+  "name": "llmrpg",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "An LLM-powered RPG built around societies of autonomous NPC agents",
+  "engines": {
+    "node": ">=22"
+  },
+  "workspaces": [
+    "shared",
+    "eal/core",
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "dev": "./scripts/ensure-dev.sh",
+    "kill:all": "./scripts/kill-all-processes.sh",
+    "check": "npm run check --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present"
+  }
+}

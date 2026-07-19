@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.dev/
+*.log
+.env
+.env.secrets
+server/data/
+.DS_Store
+coverage/
