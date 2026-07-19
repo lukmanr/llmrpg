@@ -10,6 +10,7 @@
   "workspaces": [
     "shared",
     "eal/core",
+    "eal/adapters/*",
     "server",
     "client"
   ],

@@ -1,5 +1,5 @@
 {
-  "name": "@llmrpg/eal-core",
+  "name": "@llmrpg/eal-roguelike-web",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -9,10 +9,11 @@
   "scripts": {
     "check": "tsc -p tsconfig.json"
   },
+  "dependencies": {
+    "@llmrpg/shared": "0.1.0",
+    "@llmrpg/eal-core": "0.1.0"
+  },
   "devDependencies": {
     "typescript": "^5.6.3"
-  },
-  "dependencies": {
-    "@llmrpg/shared": "0.1.0"
   }
 }

@@ -1,6 +1,6 @@
 # `@llmrpg/server`
 
-The llmrpg game server (Phase 0). Owns tool HTTP callbacks that SkillShop invokes during agent execution. Listens on port `4002` (`PORTS.LLMRPG_SERVER`; override with `LLMRPG_PORT`).
+The llmrpg game server. Owns the world DB / rules engine (Phase 1) and tool HTTP callbacks that SkillShop invokes during agent execution. Listens on port `4002` (`PORTS.LLMRPG_SERVER`; override with `LLMRPG_PORT`).
 
 ## Scripts
 
@@ -8,6 +8,20 @@ The llmrpg game server (Phase 0). Owns tool HTTP callbacks that SkillShop invoke
 - `npm start` — run once
 - `npm run check` — TypeScript check
 - `npm test` — vitest
+
+## Game engine (Phase 1)
+
+World mutations flow through the Action system: validate → apply → emit Events with causal metadata (`causedBy`, `witnessedBy`, `narrativeTags`). SQLite at `server/data/worlds/default.sqlite` is the single source of truth (WAL). Monotonic `revision` and per-turn `tick` increment on every applied action.
+
+| Route | Purpose |
+| --- | --- |
+| `GET /api/game/session` | Create-or-resume the default playthrough; returns `Snapshot` |
+| `GET /api/game/snapshot` | Fresh `Snapshot` (reconnect) |
+| `POST /api/game/actions` | `ActionRequest` → `ActionResponse` (revision + `actionId` idempotency) |
+
+Locale: handcrafted Milltown (`src/world/milltown.ts`). Engine modules live under `src/engine/` (db, components, fov, rules, log-render, world).
+
+`createApp({ worldDbPath, world })` accepts an in-memory DB path (`':memory:'`) or an injected `WorldService` for tests.
 
 ## SkillShop registration
 

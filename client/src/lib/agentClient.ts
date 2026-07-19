@@ -41,10 +41,13 @@ function readString(obj: Record<string, unknown>, key: string): string | undefin
 /**
  * POST /api/agent/execute-stream, then open EventSource on the returned sseUrl.
  * Returns a dispose function that closes the EventSource.
+ *
+ * @param agentName SkillShop agent to invoke (defaults to Phase 0 Bram placeholder).
  */
 export function executeAgentStream(
   message: string,
   handlers: AgentStreamHandlers,
+  agentName: string = NPC_PLACEHOLDER_AGENT,
 ): () => void {
   let eventSource: EventSource | null = null;
   let disposed = false;
@@ -68,7 +71,7 @@ export function executeAgentStream(
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          agentName: NPC_PLACEHOLDER_AGENT,
+          agentName,
           message,
         }),
       });

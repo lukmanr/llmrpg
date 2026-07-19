@@ -59,4 +59,6 @@ The load-bearing design rule: **LLMs propose; the engine disposes.** Every world
 
 ## Status
 
-Design phase. The [design document](docs/design/DESIGN.md) defines the implementation roadmap, beginning with the three-process skeleton (client, llmrpg server, SkillShop service), followed by the engine core and roguelike client, then the **Milltown vertical slice** — NPC cognition plus the player-experience loop, gated by an explicit acceptance test — then a minimal deterministic Director with the first agenda-grounded quests, the LLM Director and chronicle, worldgen and scale, campaigns, and multi-playthrough legends.
+**Phase 1 complete.** Phase 0 (three-process skeleton: client, llmrpg server, SkillShop service) and Phase 1 (EAL core + roguelike-web adapter, world DB, rules engine with causal events, server-authoritative FOV, the handcrafted Milltown locale, and the revision-stamped snapshot/delta protocol) are implemented — you can walk around Milltown, pick up items, and talk to Bram the Gatekeeper through the live agent pipeline. See [DEVELOPMENT.md](docs/technical/DEVELOPMENT.md) to run it.
+
+Next per the [roadmap](docs/design/DESIGN.md): the **Milltown vertical slice** — NPC cognition plus the player-experience loop, gated by an explicit acceptance test — then a minimal deterministic Director with the first agenda-grounded quests, the LLM Director and chronicle, worldgen and scale, campaigns, and multi-playthrough legends.
