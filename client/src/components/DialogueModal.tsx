@@ -4,7 +4,8 @@ import { DialogueView } from './DialogueView';
 export interface DialogueTarget {
   entityId: string;
   displayName: string;
-  agentName: string;
+  /** Retained for PresentationChannel typing; unused by the dialogue flow. */
+  agentName?: string;
 }
 
 export interface DialogueModalProps {
@@ -43,7 +44,11 @@ export function DialogueModal({ target, onClose }: DialogueModalProps) {
             Esc
           </button>
         </header>
-        <DialogueView agentName={target.agentName} title={target.displayName} />
+        <DialogueView
+          targetId={target.entityId}
+          title={target.displayName}
+          onFarewellComplete={onClose}
+        />
       </div>
     </div>
   );

@@ -1,4 +1,4 @@
-import { NPC_PLACEHOLDER_AGENT, type EntityKind, type Terrain } from '@llmrpg/shared';
+import { type EntityKind, type Terrain } from '@llmrpg/shared';
 import type { ComponentData, ComponentKind } from '../engine/components';
 
 /**
@@ -10,11 +10,41 @@ import type { ComponentData, ComponentKind } from '../engine/components';
  *   G player start (road)   B Bram (road)   N noticeboard marker (floor)
  *
  * Layout: outer wall/tree ring, south gate on a road leading to a central
- * cobbled square, mill (NW, walls + structure entity), pond (NE), two houses
- * with doors, noticeboard by the square.
+ * cobbled square, mill (NW), bakery (SW), chapel (west), inn (east of square),
+ * smithy (SE), pond (NE), farm patch (east grass), noticeboard by the square.
  */
 
 export const MILLTOWN_WORLD_ID = 'milltown';
+
+/** SkillShop agent for Phase 2 talkable NPCs. */
+export const NPC_ACTOR_AGENT = 'llmrpg_npc_actor' as const;
+
+/**
+ * Named spots used by NPC schedules. All coordinates are passable tiles
+ * inside the parsed map (door tiles, interiors, roads, grass).
+ */
+export const LOCATIONS = {
+  // One tile west of the road line so Bram's post never blocks the gate.
+  gate: { x: 15, y: 21 },
+  gate_east: { x: 18, y: 21 },
+  mill_interior: { x: 9, y: 5 },
+  mill_work: { x: 8, y: 5 },
+  mill_yard: { x: 12, y: 5 },
+  bakery: { x: 9, y: 17 },
+  bakery_yard: { x: 12, y: 17 },
+  chapel: { x: 5, y: 11 },
+  chapel_steps: { x: 9, y: 11 },
+  inn: { x: 26, y: 9 },
+  inn_door: { x: 23, y: 9 },
+  smithy: { x: 33, y: 16 },
+  smithy_yard: { x: 30, y: 16 },
+  farm: { x: 21, y: 18 },
+  square: { x: 14, y: 12 },
+  square_east: { x: 20, y: 11 },
+  pond_path: { x: 30, y: 7 },
+} as const;
+
+export type LocationName = keyof typeof LOCATIONS;
 
 export const MILLTOWN_ASCII = `
 ############################################
@@ -24,21 +54,21 @@ export const MILLTOWN_ASCII = `
 #T,,..#....#..,,,,,,,,,,,,,,,,,,,~~~~~,,,,T#
 #T,,..#....+..,,,,,,,,,,,,,,,,,,,,,~.~,,,,T#
 #T,,..######..,,,,,,,,,,,,,,,,,,,,,,.,,,,,T#
+#T,,,,,,,,,,,,,,=,,,,,,,######,,,,,,,,,,,,T#
+#T,,,,,,,,,.....=......,#....#,,,,,,,,,,,,T#
+#T,######,,.====.====.,,+....#,,,,,,,,,,,,T#
+#T,#....#,,.=........=.,#....#,,,,,,,,,,,,T#
+#T,#....+,,.=...N....=.,#....#,,,,,,,,,,,,T#
+#T,#....#,,.=........=.,######,,,,,,,,,,,,T#
+#T,######,,.==========.,,,,,,,,,,,,,,,,,,,T#
+#T,,,,,,,,,.....=......,,,,,,,,######,,,,,T#
+#T,,,,######,,,,,=,,,,,,,,,,,,,#....#,,,,,T#
+#T,,,,#....#,,,,,=,,,,,,,,,,,,,+....#,,,,,T#
+#T,,,,#....+,,,,,=,,,,,,,,,,,,,#....#,,,,,T#
+#T,,,,#....#,,,,,=,,,,,,,,,,,,,#....#,,,,,T#
+#T,,,,######,,,,,=,,,,,,,,,,,,,######,,,,,T#
 #T,,,,,,,,,,,,,,=,,,,,,,,,,,,,,,,,,,,,,,,,T#
-#T,,,,,,,,,.....=......,,,,,,,,,,,,,,,,,,,T#
-#T,,,,,,,,,.====.====.,,,,,,,,,,,,,,,,,,,,T#
-#T,,,,,,,,,.=........=.,,,,,,,,,,,,,,,,,,,T#
-#T,,,,,,,,,.=...N....=.,,,,,,,,,,,,,,,,,,,T#
-#T,,,,,,,,,.=........=.,,,,,,,,,,,,,,,,,,,T#
-#T,,,,,,,,,.==========.,,,,,,,,,,,,,,,,,,,T#
-#T,,,,,,,,,.....=......,,,,,,,,,,,,,,,,,,,T#
-#T,,,,######,,,,,=,,,,,,,,,,,,,,,,,,,,,,,,T#
-#T,,,,#....#,,,,,=,,,,,,,,,,,,,,,,,,,,,,,,T#
-#T,,,,#....+,,,,,=,,,,,,,,,,,,,,,,,,,,,,,,T#
-#T,,,,#....#,,,,,=,,,,,,,,,,,,,,,,,,,,,,,,T#
-#T,,,,######,,,,,=,,,,,,,,,,,,,,,,,,,,,,,,T#
-#T,,,,,,,,,,,,,,=,,,,,,,,,,,,,,,,,,,,,,,,,T#
-#TTTT,,,,,,,,,,,B,,,,,,,,,,,,,,,,,,,,TTTTTT#
+#TTTT,,,,,,,,,,B,,,,,,,,,,,,,,,,,,,,,TTTTTT#
 #TTTT===========G====================TTTTTT#
 ############################################
 `.trim();
@@ -72,6 +102,30 @@ export interface MilltownLocale {
   markers: { char: string; x: number; y: number }[];
   spawns: SpawnSpec[];
   playerStart: { x: number; y: number };
+}
+
+function npcSpawn(
+  id: string,
+  name: string,
+  x: number,
+  y: number,
+  archetype: string,
+  tags: string[],
+): SpawnSpec {
+  return {
+    id,
+    kind: 'npc',
+    name,
+    x,
+    y,
+    components: {
+      Position: { x, y },
+      Appearance: { archetype, tags },
+      Health: { hp: 10, maxHp: 10 },
+      Blocker: {},
+      Talkable: { agentName: NPC_ACTOR_AGENT },
+    },
+  };
 }
 
 export function parseMilltown(): MilltownLocale {
@@ -139,7 +193,7 @@ export function parseMilltown(): MilltownLocale {
         Health: { hp: 10, maxHp: 10 },
         Inventory: { itemIds: [] },
         Blocker: {},
-        Talkable: { agentName: NPC_PLACEHOLDER_AGENT },
+        Talkable: { agentName: NPC_ACTOR_AGENT },
       },
     },
     {
@@ -215,6 +269,71 @@ export function parseMilltown(): MilltownLocale {
         Item: { kind: 'lantern', carryable: true },
       },
     },
+    // Phase 2 cast — morning schedule spots (see personas.ts).
+    npcSpawn(
+      'npc_maude',
+      'Maude the Baker',
+      LOCATIONS.bakery.x,
+      LOCATIONS.bakery.y,
+      'baker',
+      ['npc', 'baker'],
+    ),
+    npcSpawn(
+      'npc_osric',
+      'Osric the Miller',
+      LOCATIONS.mill_interior.x,
+      LOCATIONS.mill_interior.y,
+      'miller',
+      ['npc', 'miller'],
+    ),
+    npcSpawn(
+      'npc_wren',
+      'Wren',
+      LOCATIONS.mill_yard.x,
+      LOCATIONS.mill_yard.y,
+      'apprentice',
+      ['npc', 'apprentice'],
+    ),
+    npcSpawn(
+      'npc_serah',
+      'Serah the Innkeeper',
+      LOCATIONS.inn.x,
+      LOCATIONS.inn.y,
+      'innkeeper',
+      ['npc', 'innkeeper'],
+    ),
+    npcSpawn(
+      'npc_tam',
+      'Tam the Farmhand',
+      LOCATIONS.farm.x,
+      LOCATIONS.farm.y,
+      'farmhand',
+      ['npc', 'farmhand'],
+    ),
+    npcSpawn(
+      'npc_aldous',
+      'Father Aldous',
+      LOCATIONS.chapel.x,
+      LOCATIONS.chapel.y,
+      'priest',
+      ['npc', 'priest'],
+    ),
+    npcSpawn(
+      'npc_petra',
+      'Petra the Smith',
+      LOCATIONS.smithy.x,
+      LOCATIONS.smithy.y,
+      'smith',
+      ['npc', 'smith'],
+    ),
+    npcSpawn(
+      'npc_hobb',
+      'Old Hobb',
+      LOCATIONS.gate_east.x,
+      LOCATIONS.gate_east.y,
+      'beggar',
+      ['npc', 'beggar'],
+    ),
   ];
 
   return {

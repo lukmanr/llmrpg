@@ -9,6 +9,7 @@ import type {
   GameAction,
   GameEventView,
   LogLine,
+  ReceiptView,
   Snapshot,
   Terrain,
   WorldDelta,
@@ -21,6 +22,8 @@ export interface GameControllerOptions {
   presentation: PresentationChannel;
   /** UI intents (journal / inventory / dismiss) forwarded to the React shell. */
   onUiIntent?: (ui: 'toggle-journal' | 'toggle-inventory' | 'dismiss') => void;
+  /** Consequence receipts from successful action responses (DESIGN §7.2). */
+  onReceipts?: (receipts: ReceiptView[]) => void;
 }
 
 interface MutableWorldView {
@@ -46,6 +49,7 @@ interface MutableWorldView {
 export class GameController implements Ticker {
   private readonly presentation: PresentationChannel;
   private readonly onUiIntent?: GameControllerOptions['onUiIntent'];
+  private readonly onReceipts?: GameControllerOptions['onReceipts'];
 
   private state: MutableWorldView | null = null;
   private connection: ConnectionState = 'connecting';
@@ -59,6 +63,7 @@ export class GameController implements Ticker {
   constructor(options: GameControllerOptions) {
     this.presentation = options.presentation;
     this.onUiIntent = options.onUiIntent;
+    this.onReceipts = options.onReceipts;
   }
 
   getConnectionState(): ConnectionState {
@@ -290,6 +295,9 @@ export class GameController implements Ticker {
       }
 
       this.applyDelta(response.revision, response.tick, response.delta, response.log);
+      if (response.receipts && response.receipts.length > 0) {
+        this.onReceipts?.(response.receipts);
+      }
       this.dispatchEvents(response.events);
       this.notify();
     } catch (err) {
@@ -346,12 +354,9 @@ export class GameController implements Ticker {
         typeof event.data['displayName'] === 'string'
           ? event.data['displayName']
           : 'Someone';
+      // agentName may still appear in event data; dialogue start uses targetId only.
       const agentName =
         typeof event.data['agentName'] === 'string' ? event.data['agentName'] : '';
-      if (!agentName) {
-        this.presentation.notify('Dialogue target has no agent.', 'system');
-        continue;
-      }
       this.presentation.openDialogue({ entityId, displayName, agentName });
     }
   }

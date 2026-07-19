@@ -14,6 +14,7 @@ import {
   type Terrain,
   type VisibleSet,
 } from '@llmrpg/shared';
+import type { GameAction, ReceiptView } from '@llmrpg/shared';
 import {
   deserializeComponent,
   isComponentKind,
@@ -22,7 +23,7 @@ import {
 } from './components';
 import { createWorldDb, defaultWorldDbPath, type WorldDb } from './db';
 import { FOV_RADIUS, fov } from './fov';
-import { applyAction } from './rules';
+import { applyAction, type ApplyResult } from './rules';
 import { createSeededRng, type Rng } from './rng';
 import {
   getComponent,
@@ -35,6 +36,32 @@ import { MILLTOWN_WORLD_ID, parseMilltown } from '../world/milltown';
 export const DEFAULT_PLAYTHROUGH_ID = 'playthrough_default';
 export const PLAYER_ENTITY_ID = 'player_you';
 
+/**
+ * Post-action turn hook (Phase 2, DESIGN §6): runs after the player's action
+ * applies, before the response delta is built. Hooks drive the NPC reflex
+ * tier and perception. NPC actions applied through `applyNpcAction` share the
+ * player's tick (revision still advances per action); their events join the
+ * turn's event list automatically, but hooks decide which log lines the
+ * player sees (push onto `log`).
+ */
+export interface TurnHookArgs {
+  world: WorldState;
+  playthrough: PlaythroughState;
+  request: ActionRequest;
+  /** All events this turn so far (player's + earlier hooks'). Mutable. */
+  events: GameEvent[];
+  /** Player-visible log lines. Mutable. */
+  log: LogLine[];
+  /** Consequence receipts to surface on this turn's response. Mutable. */
+  receipts: ReceiptView[];
+  applyNpcAction: (npcId: string, action: GameAction) => ApplyResult;
+}
+
+export interface WorldTurnHook {
+  name: string;
+  run(args: TurnHookArgs): void;
+}
+
 export interface WorldServiceOptions {
   db?: WorldDb;
   dbPath?: string;
@@ -42,6 +69,8 @@ export interface WorldServiceOptions {
   rngForPlaythrough?: (playthroughId: string) => Rng;
   now?: () => Date;
   newId?: () => string;
+  /** Post-action hooks, run in order (reflex, perception, promises, ...). */
+  turnHooks?: WorldTurnHook[];
 }
 
 /**
@@ -53,6 +82,7 @@ export class WorldService {
   private readonly rngForPlaythrough: (playthroughId: string) => Rng;
   private readonly now: () => Date;
   private readonly newId: () => string;
+  private turnHooks: WorldTurnHook[];
 
   constructor(options: WorldServiceOptions = {}) {
     this.db =
@@ -62,7 +92,13 @@ export class WorldService {
       options.rngForPlaythrough ?? ((id) => createSeededRng(id));
     this.now = options.now ?? (() => new Date());
     this.newId = options.newId ?? (() => crypto.randomUUID());
+    this.turnHooks = options.turnHooks ?? [];
     this.ensureBootstrapped();
+  }
+
+  /** Late hook registration (cognition wires up after construction). */
+  setTurnHooks(hooks: WorldTurnHook[]): void {
+    this.turnHooks = hooks;
   }
 
   /** Bootstrap Milltown if the DB has no world meta. */
@@ -244,6 +280,37 @@ export class WorldService {
       return response;
     }
 
+    // Turn pipeline (Phase 2): reflex, perception, promises, receipts.
+    const turnEvents: GameEvent[] = [...result.events];
+    const turnLog: LogLine[] = [...result.log];
+    const turnReceipts: ReceiptView[] = [];
+    let npcActionSeq = 0;
+    const hookArgs: TurnHookArgs = {
+      world,
+      playthrough,
+      request,
+      events: turnEvents,
+      log: turnLog,
+      receipts: turnReceipts,
+      applyNpcAction: (npcId, action) => {
+        const r = applyAction(world, playthrough, action, {
+          actionId: `${request.actionId}:npc:${npcId}:${npcActionSeq++}`,
+          rng: this.rngForPlaythrough(playthroughId),
+          now: this.now,
+          newId: this.newId,
+          actorEntityId: npcId,
+          advanceTick: false,
+        });
+        if (r.ok) {
+          turnEvents.push(...r.events);
+        }
+        return r;
+      },
+    };
+    for (const hook of this.turnHooks) {
+      hook.run(hookArgs);
+    }
+
     const playerPos = getComponent(
       world.entities.get(playthrough.playerEntityId)!,
       'Position',
@@ -269,25 +336,32 @@ export class WorldService {
       }
     }
 
-    playthrough.log.push(...result.log);
+    playthrough.log.push(...turnLog);
 
     const visible = this.computeVisibleSet(world, playthrough.playerEntityId);
     const player = this.buildPlayerView(world, playthrough.playerEntityId);
+
+    // Clients only receive events the player witnessed; all events persist.
+    const playerId = playthrough.playerEntityId;
+    const witnessedEvents = turnEvents.filter((e) =>
+      e.witnessedBy.includes(playerId) || e.actorId === playerId,
+    );
 
     const response: ActionResponse = {
       ok: true,
       revision: world.revision,
       tick: world.tick,
-      events: result.events.map(toEventView),
-      log: result.log,
+      events: witnessedEvents.map(toEventView),
+      log: turnLog,
       delta: {
         visible,
         exploredPatch,
         player,
       },
+      ...(turnReceipts.length > 0 ? { receipts: turnReceipts } : {}),
     };
 
-    this.persistAfterAction(world, playthrough, request, response, result.events);
+    this.persistAfterAction(world, playthrough, request, response, turnEvents);
     return response;
   }
 

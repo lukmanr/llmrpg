@@ -6,3 +6,6 @@ export * from './game/types.js';
 export * from './game/actions.js';
 export * from './game/events.js';
 export * from './game/protocol.js';
+export * from './game/time.js';
+export * from './game/dialogue.js';
+export * from './game/journal.js';

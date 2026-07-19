@@ -19,7 +19,7 @@ export function renderEvents(
 
 function toneFor(verb: string): LogTone {
   if (verb === 'attack' || verb === 'die') return 'combat';
-  if (verb === 'talk') return 'dialogue';
+  if (verb === 'talk' || verb === 'emote') return 'dialogue';
   return 'info';
 }
 
@@ -132,6 +132,12 @@ function renderEventText(
         entityName(world, event.actorId ?? event.targetIds[0], 'Someone');
       const base = name.replace(/ \(dead\)$/, '');
       return `${base} dies.`;
+    }
+
+    case 'emote': {
+      const text = strData(event, 'text') ?? '...';
+      if (you) return text;
+      return `${actor.name}: "${text}"`;
     }
 
     case 'talk': {

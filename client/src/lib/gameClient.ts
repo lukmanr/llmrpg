@@ -3,7 +3,20 @@ import {
   ActionRequestSchema,
   ActionResponse,
   ActionResponseSchema,
+  CharacterCreateRequest,
+  CharacterCreateRequestSchema,
+  CharacterState,
+  CharacterStateSchema,
+  DialogueStartRequestSchema,
+  DialogueState,
+  DialogueStateSchema,
+  DialogueTurnRequest,
+  DialogueTurnRequestSchema,
+  DialogueTurnResponse,
+  DialogueTurnResponseSchema,
   GAME_API,
+  Journal,
+  JournalSchema,
   Snapshot,
   SnapshotSchema,
 } from '@llmrpg/shared';
@@ -66,4 +79,62 @@ export async function submitAction(
   });
   const json = await readJson(response);
   return ActionResponseSchema.parse(json);
+}
+
+/** GET /api/game/character */
+export async function getCharacter(): Promise<CharacterState> {
+  const response = await fetch(GAME_API.CHARACTER);
+  const json = await readJson(response);
+  return CharacterStateSchema.parse(json);
+}
+
+/** POST /api/game/character */
+export async function createCharacter(req: CharacterCreateRequest): Promise<CharacterState> {
+  const body = CharacterCreateRequestSchema.parse(req);
+  const response = await fetch(GAME_API.CHARACTER, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const json = await readJson(response);
+  return CharacterStateSchema.parse(json);
+}
+
+/** GET /api/game/journal */
+export async function getJournal(): Promise<Journal> {
+  const response = await fetch(GAME_API.JOURNAL);
+  const json = await readJson(response);
+  return JournalSchema.parse(json);
+}
+
+/** POST /api/game/dialogue/start */
+export async function dialogueStart(targetId: string): Promise<DialogueState> {
+  const body = DialogueStartRequestSchema.parse({ targetId });
+  const response = await fetch(GAME_API.DIALOGUE_START, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const json = await readJson(response);
+  return DialogueStateSchema.parse(json);
+}
+
+/** POST /api/game/dialogue/turn */
+export async function dialogueTurn(req: DialogueTurnRequest): Promise<DialogueTurnResponse> {
+  const body = DialogueTurnRequestSchema.parse(req);
+  const response = await fetch(GAME_API.DIALOGUE_TURN, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const json = await readJson(response);
+  return DialogueTurnResponseSchema.parse(json);
+}
+
+/** GET /api/game/dialogue/state?dialogueId=… */
+export async function dialogueState(dialogueId: string): Promise<DialogueState> {
+  const url = `${GAME_API.DIALOGUE_STATE}?dialogueId=${encodeURIComponent(dialogueId)}`;
+  const response = await fetch(url);
+  const json = await readJson(response);
+  return DialogueStateSchema.parse(json);
 }

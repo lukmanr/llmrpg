@@ -17,6 +17,8 @@ export const GameActionSchema = z.discriminatedUnion('verb', [
   z.object({ verb: z.literal('use'), itemId: z.string() }),
   z.object({ verb: z.literal('attack'), targetId: z.string() }),
   z.object({ verb: z.literal('talk'), targetId: z.string() }),
+  /** Flavor speech/gesture; no state change. Powers NPC barks (DESIGN §7.6). */
+  z.object({ verb: z.literal('emote'), text: z.string().min(1).max(200) }),
 ]);
 export type GameAction = z.infer<typeof GameActionSchema>;
 export type GameVerb = GameAction['verb'];

@@ -7,6 +7,7 @@ import {
 } from './types.js';
 import { GameActionSchema } from './actions.js';
 import { GameEventViewSchema } from './events.js';
+import { ReceiptViewSchema } from './journal.js';
 
 /**
  * Revision-stamped snapshot/delta protocol (DESIGN §4.2).
@@ -92,6 +93,8 @@ export const ActionResponseSchema = z.discriminatedUnion('ok', [
     events: z.array(GameEventViewSchema),
     log: z.array(LogLineSchema),
     delta: WorldDeltaSchema,
+    /** Consequence receipts generated this turn (DESIGN §7.2). */
+    receipts: z.array(ReceiptViewSchema).optional(),
   }),
   z.object({
     ok: z.literal(false),
@@ -112,4 +115,14 @@ export const GAME_API = {
   SNAPSHOT: '/api/game/snapshot',
   /** POST ActionRequest -> ActionResponse. */
   ACTIONS: '/api/game/actions',
+  /** GET CharacterState / POST CharacterCreateRequest. */
+  CHARACTER: '/api/game/character',
+  /** GET Journal. */
+  JOURNAL: '/api/game/journal',
+  /** POST DialogueStartRequest -> DialogueState. */
+  DIALOGUE_START: '/api/game/dialogue/start',
+  /** POST DialogueTurnRequest -> DialogueTurnResponse. */
+  DIALOGUE_TURN: '/api/game/dialogue/turn',
+  /** GET ?dialogueId= -> DialogueState (refresh after a streamed reply). */
+  DIALOGUE_STATE: '/api/game/dialogue/state',
 } as const;

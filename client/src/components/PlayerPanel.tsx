@@ -1,14 +1,22 @@
 import type { PlayerView } from '@llmrpg/shared';
+import { gameTime } from '@llmrpg/shared';
 
 export interface PlayerPanelProps {
   player: PlayerView;
   tick: number;
+  activeVows?: number;
   inventoryHighlight?: boolean;
 }
 
-export function PlayerPanel({ player, tick, inventoryHighlight }: PlayerPanelProps) {
+export function PlayerPanel({
+  player,
+  tick,
+  activeVows = 0,
+  inventoryHighlight,
+}: PlayerPanelProps) {
   const hpPct =
     player.maxHp > 0 ? Math.max(0, Math.min(100, (player.hp / player.maxHp) * 100)) : 0;
+  const { day, phase } = gameTime(tick);
 
   return (
     <aside className="player-panel">
@@ -25,13 +33,22 @@ export function PlayerPanel({ player, tick, inventoryHighlight }: PlayerPanelPro
       <dl className="stat-grid">
         <div>
           <dt>Tick</dt>
-          <dd>{tick}</dd>
+          <dd>
+            {tick}
+            <span className="game-time">
+              Day {day} · {phase}
+            </span>
+          </dd>
         </div>
         <div>
           <dt>Pos</dt>
           <dd>
             {player.x},{player.y}
           </dd>
+        </div>
+        <div>
+          <dt>Vows</dt>
+          <dd>{activeVows} active</dd>
         </div>
       </dl>
       <section

@@ -38,6 +38,10 @@ export interface ApplyActionOptions {
   rng?: Rng;
   now?: () => Date;
   newId?: () => string;
+  /** Acting entity; defaults to the playthrough's player. */
+  actorEntityId?: string;
+  /** Set false for NPC reflex actions inside the player's turn. */
+  advanceTick?: boolean;
 }
 
 function reject(code: ActionErrorCode, message: string): ApplyRejection {
@@ -54,14 +58,15 @@ export function applyAction(
   action: GameAction,
   options: ApplyActionOptions,
 ): ApplyResult {
-  const actor = world.entities.get(playthrough.playerEntityId);
+  const actorEntityId = options.actorEntityId ?? playthrough.playerEntityId;
+  const actor = world.entities.get(actorEntityId);
   if (!actor) {
-    return reject('invalid_action', 'Player entity missing');
+    return reject('invalid_action', 'Actor entity missing');
   }
 
   const actorPos = getComponent(actor, 'Position');
   if (!actorPos) {
-    return reject('invalid_action', 'Player has no position');
+    return reject('invalid_action', 'Actor has no position');
   }
 
   const rng = options.rng ?? createSeededRng(playthrough.id);
@@ -69,7 +74,9 @@ export function applyAction(
   const newId = options.newId ?? (() => crypto.randomUUID());
 
   const revision = world.revision + 1;
-  const tick = world.tick + 1;
+  // NPC reflex actions run inside the player's turn: revision always
+  // advances, the tick only advances for the player's own action.
+  const tick = options.advanceTick === false ? world.tick : world.tick + 1;
   const causedByAction = [options.actionId];
   const events: GameEvent[] = [];
 
@@ -338,6 +345,17 @@ export function applyAction(
         data: { agentName: talkable.agentName, displayName: target.name },
         narrativeTags: ['social'],
         location: { x: targetPos.x, y: targetPos.y },
+      });
+      break;
+    }
+
+    case 'emote': {
+      emit('emote', {
+        actorId: actor.id,
+        targetIds: [],
+        data: { text: action.text },
+        narrativeTags: ['social'],
+        location: { x: actorPos.x, y: actorPos.y },
       });
       break;
     }

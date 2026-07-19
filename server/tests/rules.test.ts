@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { NPC_PLACEHOLDER_AGENT } from '@llmrpg/shared';
+
 import { getComponent } from '../src/engine/state';
 import { PLAYER_ENTITY_ID, WorldService } from '../src/engine/world';
 
@@ -180,7 +180,8 @@ describe('rules engine', () => {
     const talk = res.events.find((e) => e.verb === 'talk');
     expect(talk?.data).toEqual(
       expect.objectContaining({
-        agentName: NPC_PLACEHOLDER_AGENT,
+        // Phase 2: all NPCs route through the generic actor agent.
+        agentName: 'llmrpg_npc_actor',
         displayName: 'Bram the Gatekeeper',
       }),
     );
